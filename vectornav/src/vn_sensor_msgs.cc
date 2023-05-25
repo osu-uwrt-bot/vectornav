@@ -194,9 +194,15 @@ private:
         msg.linear_acceleration.x = msg_in->accel.y;
         msg.linear_acceleration.y = msg_in->accel.x;
         msg.linear_acceleration.z = -msg_in->accel.z;
+
       } else {
         msg.angular_velocity = msg_in->angularrate;
-        msg.linear_acceleration = msg_in->accel;
+
+        // so this is a fix for the IMU acceleration frame being wacky
+        // IMUS out of factory have this weird frame alignment
+        msg.linear_acceleration.x = -msg_in->accel.x;
+        msg.linear_acceleration.y = msg_in->accel.y;
+        msg.linear_acceleration.z = -msg_in->accel.z;
       }
 
       fill_covariance_from_param("orientation_covariance", msg.orientation_covariance);
