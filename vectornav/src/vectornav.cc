@@ -548,6 +548,7 @@ private:
     // Restore Factory Settings for consistency
     // TODO(Dereck): Move factoryReset to Service Call?
     // vs_->restoreFactorySettings();
+    vs_->reset();
 
     // Configure the sensor to the requested baudrate
     if (baud > 0 && baud != vs_->baudrate()) {
