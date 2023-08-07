@@ -541,15 +541,10 @@ private:
       return false;
     }
 
-    // Restore Factory Settings for consistency
-    // TODO(Dereck): Move factoryReset to Service Call?
-    // vs_->restoreFactorySettings();
     vs_->reset();
 
-    // Configure the sensor to the requested baudrate
-    if (baud > 0 && baud != vs_->baudrate()) {
-      vs_->changeBaudRate(baud);
-    }
+    rclcpp::Rate lr(1.0);
+    lr.sleep();
 
     // Verify connection one more time
     if (!vs_->verifySensorConnectivity()) {
@@ -740,36 +735,58 @@ private:
     auto node = reinterpret_cast<Vectornav *>(nodeptr);
 
     // Verify that this packet is a binary output message
-    if (asyncPacket.type() != vn::protocol::uart::Packet::TYPE_BINARY) {
-      return;
+    if (asyncPacket.type() == vn::protocol::uart::Packet::TYPE_BINARY) {
+      // Parse data into CompositeData container
+      vn::sensors::CompositeData cd = cd.parse(asyncPacket);
+
+      // Groups
+      auto i = 0;
+
+      if (asyncPacket.groups() & vn::protocol::uart::BinaryGroup::BINARYGROUP_COMMON)
+        parseCommonGroup(node, cd, asyncPacket.groupField(i++));
+
+      if (asyncPacket.groups() & vn::protocol::uart::BinaryGroup::BINARYGROUP_TIME)
+        parseTimeGroup(node, cd, asyncPacket.groupField(i++));
+
+      if (asyncPacket.groups() & vn::protocol::uart::BinaryGroup::BINARYGROUP_IMU)
+        parseImuGroup(node, cd, asyncPacket.groupField(i++));
+
+      if (asyncPacket.groups() & vn::protocol::uart::BinaryGroup::BINARYGROUP_GPS)
+        parseGpsGroup(node, cd, asyncPacket.groupField(i++));
+
+      if (asyncPacket.groups() & vn::protocol::uart::BinaryGroup::BINARYGROUP_ATTITUDE)
+        parseAttitudeGroup(node, cd, asyncPacket.groupField(i++));
+
+      if (asyncPacket.groups() & vn::protocol::uart::BinaryGroup::BINARYGROUP_INS)
+        parseInsGroup(node, cd, asyncPacket.groupField(i++));
+
+      if (asyncPacket.groups() & vn::protocol::uart::BinaryGroup::BINARYGROUP_GPS2)
+        parseGps2Group(node, cd, asyncPacket.groupField(i++));
+    } else if(asyncPacket.isAsciiAsync()){
+      if(asyncPacket.determineAsciiAsyncType() == vn::protocol::uart::AsciiAsync::VNQMR){
+        // sensor_msgs::msg::Imu imu_msg;
+        // vn::math::vec4f quat;
+        // vn::math::vec3f accel, rate, mag;
+        // asyncPacket.parseVNQMR(&quat, &mag, &accel, &rate);
+
+        // // accel[0] *= -1.0;
+        // // accel[1] *= -1.0;
+        // // accel[2] *= -1.0;
+
+        // // rate[0] *= -1.0;
+        // // rate[1] *= -1.0;
+        // // rate[2] *= -1.0;
+
+        // imu_msg.linear_acceleration = toMsg(accel);
+        // imu_msg.linear_acceleration_covariance = {0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01};
+        // imu_msg.orientation = toMsg(quat);
+        // imu_msg.orientation_covariance = {0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01};
+        // imu_msg.angular_velocity = toMsg(rate);
+        // imu_msg.angular_velocity_covariance = {0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01};
+
+        // node->pub_vnqmr_->publish(imu_msg);
+      }
     }
-
-    // Parse data into CompositeData container
-    vn::sensors::CompositeData cd = cd.parse(asyncPacket);
-
-    // Groups
-    auto i = 0;
-
-    if (asyncPacket.groups() & vn::protocol::uart::BinaryGroup::BINARYGROUP_COMMON)
-      parseCommonGroup(node, cd, asyncPacket.groupField(i++));
-
-    if (asyncPacket.groups() & vn::protocol::uart::BinaryGroup::BINARYGROUP_TIME)
-      parseTimeGroup(node, cd, asyncPacket.groupField(i++));
-
-    if (asyncPacket.groups() & vn::protocol::uart::BinaryGroup::BINARYGROUP_IMU)
-      parseImuGroup(node, cd, asyncPacket.groupField(i++));
-
-    if (asyncPacket.groups() & vn::protocol::uart::BinaryGroup::BINARYGROUP_GPS)
-      parseGpsGroup(node, cd, asyncPacket.groupField(i++));
-
-    if (asyncPacket.groups() & vn::protocol::uart::BinaryGroup::BINARYGROUP_ATTITUDE)
-      parseAttitudeGroup(node, cd, asyncPacket.groupField(i++));
-
-    if (asyncPacket.groups() & vn::protocol::uart::BinaryGroup::BINARYGROUP_INS)
-      parseInsGroup(node, cd, asyncPacket.groupField(i++));
-
-    if (asyncPacket.groups() & vn::protocol::uart::BinaryGroup::BINARYGROUP_GPS2)
-      parseGps2Group(node, cd, asyncPacket.groupField(i++));
   }
 
   /** Copy Common Group fields in binary packet to a CompositeData message

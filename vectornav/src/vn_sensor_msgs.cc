@@ -203,32 +203,21 @@ private:
     {
       sensor_msgs::msg::Imu msg;
       msg.header = msg_in->header;
+
+      tf2::Quaternion q, q_ned2body;
+      fromMsg(msg_in->quaternion, q);
+      q_ned2body.setRPY(M_PI, 0.0, M_PI/2.0);
+      msg.orientation = toMsg(q_ned2body * q);
+
+      msg.angular_velocity = msg_in->angularrate;
       
-      if(use_enu) {
-        // NED to ENU conversion
-        // swap x and y and negate z
-        msg.angular_velocity.x = msg_in->angularrate.y;
-        msg.angular_velocity.y = msg_in->angularrate.x;
-        msg.angular_velocity.z = -msg_in->angularrate.z;
-
-        msg.linear_acceleration.x = msg_in->accel.y;
-        msg.linear_acceleration.y = msg_in->accel.x;
-        msg.linear_acceleration.z = -msg_in->accel.z;
-
-      } else {
-        msg.angular_velocity = msg_in->angularrate;
-
-        // so this is a fix for the IMU acceleration frame being wacky
-        // IMUS out of factory have this weird frame alignment
-        msg.linear_acceleration.x = -msg_in->accel.x;
-        msg.linear_acceleration.y = msg_in->accel.y;
-        msg.linear_acceleration.z = -msg_in->accel.z;
-      }
+      msg.linear_acceleration.x = -msg_in->accel.x;
+      msg.linear_acceleration.y = -msg_in->accel.y;
+      msg.linear_acceleration.z = -msg_in->accel.z;
 
       fill_covariance_from_param("orientation_covariance", msg.orientation_covariance);
       fill_covariance_from_param("angular_velocity_covariance", msg.angular_velocity_covariance);
-      fill_covariance_from_param(
-        "linear_acceleration_covariance", msg.linear_acceleration_covariance);
+      fill_covariance_from_param("linear_acceleration_covariance", msg.linear_acceleration_covariance);
 
       pub_imu_->publish(msg);
     }
